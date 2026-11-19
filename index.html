@@ -734,7 +734,8 @@
     .ln-d-rows{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:11px 14px;margin:6px 0 20px;font-size:.95rem;line-height:1.6}
     .ln-d-rows dt{color:#b45309;font-weight:700}
     .ln-d-rows dd{margin:0;color:#3b2418;word-break:break-word}
-    .ln-d-rows dd .ln-d-item{display:block}
+    .ln-d-rows dd .ln-d-item{display:inline-block;margin-right:12px}   /* 沒有日期、時間的項目排在同一行，寬度不夠才換行 */
+    .ln-d-rows dd .ln-d-item.dated{display:block;margin-right:0}
     .ln-d-btns{display:flex;gap:10px}
     .ln-d-btns .ev-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;min-height:50px;border-radius:12px;font-size:.98rem;font-weight:800;letter-spacing:.06em;text-decoration:none}
     .ln-d-btns .ln-d-go{background:linear-gradient(120deg,#b91c1c,#d97706);border:0;color:#fff}
@@ -5993,7 +5994,7 @@ function loadStandby() {
 /* 集章卡的雲端儲存／載入網址（系統設定「集章雲端網址」），由集章卡頁面讀取 */
 function stampCloudUrl() { return CFG.stampCloudUrl || ''; }
 /* 程式版本（顯示在集章選單，方便確認手機是否已更新到最新版） */
-const APP_VERSION = '2026-11-19-v0';
+const APP_VERSION = '2026-11-19-v1';
 function appVersion() { return APP_VERSION; }
 /* 集章卡的蓋章距離（公尺，系統設定「集章偵測範圍」，預設 50） */
 function stampRange() { const n = Number(String(CFG.stampRangeM || '').replace(/[^\d.]/g, '')); return n > 0 ? n : 50; }
@@ -8150,7 +8151,7 @@ const Lantern = (() => {
     const day = dateSel.value;
     const when = [it.spec ? Cal.dateLabel(it.spec).replace(/\d{4}\//g, '').replace(/ – /g, '-') : '', it.t1 != null ? hm(it.t1) + (it.t2 != null ? `-${hm(it.t2)}` : '') : ''].filter(Boolean).join(' ');
     const off = day && !itemOn(d, it, day), live = !off && itemLive(d, it);
-    return `<span class="${cls}${off ? ' off' : ''}${live ? ' live' : ''}">${when ? `<em class="ln-it-when">${esc(when)}</em>` : ''}${richText(it.name)}${off ? '<small class="ln-it-tag">非本日</small>' : ''}${live ? '<small class="ln-it-tag live">進行中</small>' : ''}</span>`;
+    return `<span class="${cls}${when ? ' dated' : ''}${off ? ' off' : ''}${live ? ' live' : ''}">${when ? `<em class="ln-it-when">${esc(when)}</em>` : ''}${richText(it.name)}${off ? '<small class="ln-it-tag">非本日</small>' : ''}${live ? '<small class="ln-it-tag live">進行中</small>' : ''}</span>`;
   }
   let shown = [];
 
