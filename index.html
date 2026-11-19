@@ -714,6 +714,11 @@
     .ln-feature{margin:0;font-size:.84rem;color:#7c2d12;background:#fff7ed;border-left:3px solid #f59e0b;border-radius:6px;padding:7px 9px;line-height:1.55}
     .ln-items{display:flex;flex-wrap:wrap;gap:5px}
     .ln-items span{border:1px solid #f3dcc4;background:#fffaf5;border-radius:8px;padding:4px 8px;font-size:.78rem;color:#4a3426;line-height:1.4}
+    .ln-it-when{font-style:normal;font-weight:900;color:#b45309;margin-right:5px;white-space:nowrap}
+    .ln-items span.off,.ln-d-item.off{opacity:.45}
+    .ln-it-tag{display:inline-block;margin-left:5px;padding:0 6px;border-radius:6px;background:#e5e7eb;color:#475569;font-size:.7rem;font-weight:900;vertical-align:1px}
+    .ln-it-tag.live{background:#dc2626;color:#fff}
+    .ln-items span.live,.ln-d-item.live{border-color:#fca5a5;background:#fff1f2}
     .ln-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:4px}
     .ln-card{cursor:pointer}
     .ln-card:hover{border-color:#efc9a4;box-shadow:0 10px 24px rgba(127,29,29,.14)}
@@ -5988,7 +5993,7 @@ function loadStandby() {
 /* 集章卡的雲端儲存／載入網址（系統設定「集章雲端網址」），由集章卡頁面讀取 */
 function stampCloudUrl() { return CFG.stampCloudUrl || ''; }
 /* 程式版本（顯示在集章選單，方便確認手機是否已更新到最新版） */
-const APP_VERSION = '2026-11-08-v2';
+const APP_VERSION = '2026-11-19-v0';
 function appVersion() { return APP_VERSION; }
 /* 集章卡的蓋章距離（公尺，系統設定「集章偵測範圍」，預設 50） */
 function stampRange() { const n = Number(String(CFG.stampRangeM || '').replace(/[^\d.]/g, '')); return n > 0 ? n : 50; }
@@ -7816,7 +7821,7 @@ const Cal = (() => {
     get error() { return error; },
     all: () => items.filter(it => !isHidden(it)),
     itemsOn: key => itemsOn(key, items.filter(it => !isHidden(it))),
-    shownInCell, spanOf, colorOf, occurs, nextOn, datesOf, dateLabel,
+    shownInCell, spanOf, colorOf, occurs, nextOn, datesOf, dateLabel, parseSpec,
     onShown() { load(); render(); },
     openDate(key) { selected = key; month = key.slice(0, 7); render(); showView('calendar'); }
   };
@@ -8069,18 +8074,18 @@ const Lantern = (() => {
     const [a, b] = [ds[0], ds[ds.length - 1]];
     return a <= b ? { start: a, end: b } : { start: b, end: a };
   };
-  const inRange = (d, key) => { const r = dateRange(d.lantern.dates); return Boolean(r) && r.start <= key && key <= r.end; };
+  const inRange = (d, key) => { const r = rangeOf(d); return Boolean(r) && r.start <= key && key <= r.end; };
   /* 卡片日期顯示 MM/DD-MM/DD（省略年份） */
-  const shortRange = text => { const r = dateRange(text); return r ? (r.start === r.end ? r.start.slice(5) : `${r.start.slice(5)}-${r.end.slice(5)}`) : clean(text); };
+  const shortRange = d => { const r = rangeOf(d); return r ? (r.start === r.end ? r.start.slice(5) : `${r.start.slice(5)}-${r.end.slice(5)}`) : clean(d.lantern.dates); };
   /* 過期（活動結束日已過）的廟宇不顯示 */
-  const isExpired = d => { const r = dateRange(d.lantern.dates); return Boolean(r) && r.end < todayKey(); };
+  const isExpired = d => { const r = rangeOf(d); return Boolean(r) && r.end < todayKey(); };
   const temples = () => allData.filter(d => d.type === '廟宇' && d.lantern && !isExpired(d));
   const isToday = d => inRange(d, todayKey());
   /* 把所有日期範圍展開成單日，做成日期篩選選單（選單只顯示 MM/DD，省略年份） */
   function dateOptions(all) {
     const days = new Map();
     all.forEach(d => {
-      const r = dateRange(d.lantern.dates);
+      const r = rangeOf(d);
       if (!r) return;
       for (let k = r.start, i = 0; k <= r.end && i < 120; k = addDays(k, 1), i++) days.set(k, (days.get(k) || 0) + 1);
     });
@@ -8088,17 +8093,76 @@ const Lantern = (() => {
     dateSel.innerHTML = '<option value="">全部顯示</option>' + [...days.keys()].sort().map(k => `<option value="${k}">${k.slice(5)}（${days.get(k)} 間）</option>`).join('');
     if (days.has(keep)) dateSel.value = keep;
   }
+  /* 活動內容細項：每項開頭可寫日期（單日、期間、民國年、期間＋星期）和時間（HH:MM 或 HH:MM-HH:MM），
+     例如「2027/02/20 19:00 武轎踩街」「2027/02/20-2027/02/22 擲筊祈福」「19:00-21:00 摸彩」；
+     沒寫日期＝整體期間每天，沒寫時間＝照「元宵活動時間」欄。各項用「|」或「、」隔開（日期列表、星期列表裡的「、」不算分項） */
+  const ITEM_DATE = /^\s*(?:(?:\d{2,4}\s*[\/.年]\s*\d{1,2}\s*[\/.月]\s*\d{1,2}\s*日?|[（(][日一二三四五六天][)）]|(?:週|周|星期|禮拜)[日一二三四五六天]|[日一二三四五六天](?=\s*[、,，]|\s)|[\-－–—~～至到、,，+＋]|\s)+)/;
+  const ITEM_TIME = /^\s*(\d{1,2})[:：](\d{2})(?:\s*[\-－–—~～至到]\s*(\d{1,2})[:：](\d{2}))?/;
+  const toMinute = (h, m) => Number(h) * 60 + Number(m);
+  function parseItem(raw) {
+    let rest = raw, spec = null, t1 = null, t2 = null;
+    const dm = rest.match(ITEM_DATE);
+    if (dm && /\d/.test(dm[0])) { spec = Cal.parseSpec(dm[0]); if (spec) rest = rest.slice(dm[0].length); }
+    const tm = rest.match(ITEM_TIME);
+    if (tm) { t1 = toMinute(tm[1], tm[2]); t2 = tm[3] != null ? toMinute(tm[3], tm[4]) : null; rest = rest.slice(tm[0].length); }
+    const name = rest.replace(/^[\s:：,，、]+/, '');
+    return { raw, name: name || raw, spec: spec ? { multi: true, segs: spec.segs, start: spec.start, end: spec.end } : null, t1, t2 };
+  }
+  /* 去掉開頭的日期、時間後還有文字，才算一項完整的活動 */
+  const hasName = t => /\S/.test(t.replace(ITEM_DATE, '').replace(ITEM_TIME, '').replace(/^[\s:：,，、]+/, ''));
+  function itemsOf(L) {
+    if (L._items) return L._items;
+    const out = [];
+    String(L.content || '').split(/[│|｜]/).forEach(block => {
+      let cur = '';
+      block.split('、').forEach(part => {
+        if (cur && hasName(cur)) { out.push(cur); cur = part; }
+        else cur = cur ? `${cur}、${part}` : part;
+      });
+      if (cur) out.push(cur);
+    });
+    return (L._items = out.map(clean).filter(Boolean).map(parseItem));
+  }
+  /* 整體期間：日期範圍欄＋細項日期的聯集（細項超出範圍時自動延長） */
+  function rangeOf(d) {
+    const L = d.lantern;
+    if (L._range !== undefined) return L._range;
+    let r = dateRange(L.dates);
+    itemsOf(L).forEach(it => {
+      if (!it.spec) return;
+      r = r ? { start: it.spec.start < r.start ? it.spec.start : r.start, end: it.spec.end > r.end ? it.spec.end : r.end } : { start: it.spec.start, end: it.spec.end };
+    });
+    return (L._range = r);
+  }
+  const itemOn = (d, it, key) => it.spec ? Cal.occurs(it.spec, key) : inRange(d, key);
+  /* 元宵活動時間欄（例如 18:00-22:00）→ 分鐘 */
+  const colTime = L => { const m = String(L.time || '').match(ITEM_TIME); return m ? [toMinute(m[1], m[2]), m[3] != null ? toMinute(m[3], m[4]) : 1440] : null; };
+  function itemLive(d, it) {
+    const k = todayKey();
+    if (!itemOn(d, it, k)) return false;
+    const now = new Date(), nm = now.getHours() * 60 + now.getMinutes(), col = colTime(d.lantern);
+    const [a, b] = it.t1 != null ? [it.t1, it.t2 != null ? it.t2 : (col ? col[1] : 1440)] : (col || [0, 1440]);
+    return nm >= a && nm <= b;
+  }
+  const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  /* 細項一行：日期與時間標籤＋名稱；選了日期篩選時，那天沒有的變淡並標「非本日」；當下進行中標「進行中」 */
+  function itemHtml(d, it, cls) {
+    const day = dateSel.value;
+    const when = [it.spec ? Cal.dateLabel(it.spec).replace(/\d{4}\//g, '').replace(/ – /g, '-') : '', it.t1 != null ? hm(it.t1) + (it.t2 != null ? `-${hm(it.t2)}` : '') : ''].filter(Boolean).join(' ');
+    const off = day && !itemOn(d, it, day), live = !off && itemLive(d, it);
+    return `<span class="${cls}${off ? ' off' : ''}${live ? ' live' : ''}">${when ? `<em class="ln-it-when">${esc(when)}</em>` : ''}${richText(it.name)}${off ? '<small class="ln-it-tag">非本日</small>' : ''}${live ? '<small class="ln-it-tag live">進行中</small>' : ''}</span>`;
+  }
   let shown = [];
 
   function card(d) {
     const L = d.lantern, g = govFlags(L.gov), src = imageUrl(d.image);
     const pic = src ? `<img class="ln-pic js-zoom-any" src="${esc(src)}" data-full="${esc(src)}" alt="${esc(d.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<span class="ln-pic" aria-hidden="true">🏮</span>';
-    const items = L.content ? L.content.split(/[│|｜]/).map(clean).filter(Boolean) : [];
+    const items = itemsOf(L);
     return `<article class="ln-card" data-ln-key="${esc(keyOf(d))}"><div class="ln-top">${pic}<div><h3 class="ln-theme">${esc(L.theme || '元宵活動')}</h3><span class="ln-temple">${esc(d.name)}</span><span class="ln-meta">${esc([d.region, d.village].filter(Boolean).join('・'))}${d.deity ? `・主祀 ${esc(d.deity)}` : ''}</span><div class="ln-badges">${isToday(d) ? '<span class="ln-badge now">今天有活動</span>' : ''}${g.nsa ? '<span class="ln-badge nsa">澎管處活動</span>' : ''}${g.cul ? '<span class="ln-badge cul">文化局活動</span>' : ''}</div></div></div>
       <div class="ln-body">
-        ${L.dates || L.time ? `<div class="ln-when">${L.dates ? `<span>📅 ${esc(shortRange(L.dates))}</span>` : ''}${L.time ? `<span>🕘 ${esc(L.time)}</span>` : ''}</div>` : ''}
+        ${L.dates || L.time ? `<div class="ln-when">${L.dates ? `<span>📅 ${esc(shortRange(d))}</span>` : ''}${L.time ? `<span>🕘 ${esc(L.time)}</span>` : ''}</div>` : ''}
         ${L.feature ? `<p class="ln-feature">✨ ${richText(L.feature)}</p>` : ''}
-        ${items.length ? `<div class="ln-items">${items.map(t => `<span>${richText(t)}</span>`).join('')}</div>` : ''}
+        ${items.length ? `<div class="ln-items">${items.map(it => itemHtml(d, it, '')).join('')}</div>` : ''}
         <div class="ln-actions"><button type="button" class="ev-btn" data-place-key="${esc(keyOf(d))}">地圖定位</button><a class="ev-btn nav" href="${esc(getTargetUrl(d))}" target="_blank" rel="noopener noreferrer">Google 導航</a></div>
       </div></article>`;
   }
@@ -8124,7 +8188,7 @@ const Lantern = (() => {
       return [d.name, d.region, d.village, d.deity, ...Object.values(d.lantern)].join(' ').toLowerCase().includes(q);
     });
     const regionIdx = r => { const i = regionOrder.indexOf(r); return i < 0 ? 99 : i; };
-    const startOf = d => dateRange(d.lantern.dates)?.start || '9999/99/99';
+    const startOf = d => rangeOf(d)?.start || '9999/99/99';
     shown.sort($('lnSort').value === 'region'
       ? (a, b) => regionIdx(a.region) - regionIdx(b.region) || a.village.localeCompare(b.village, 'zh-Hant') || startOf(a).localeCompare(startOf(b))
       : (a, b) => (isToday(b) - isToday(a)) || startOf(a).localeCompare(startOf(b)) || regionIdx(a.region) - regionIdx(b.region));
@@ -8257,7 +8321,7 @@ Output the reconstructed image ONLY. No textual explanation required.
     const d = shown.find(x => keyOf(x) === key) || temples().find(x => keyOf(x) === key);
     if (!d) return;
     const L = d.lantern || {};
-    const items = L.content ? L.content.split(/[│|｜]/).map(clean).filter(Boolean) : [];
+    const items = d.lantern ? itemsOf(L) : [];
     const rows = [
       ['所在地', esc([d.region, d.village].filter(Boolean).join(' · '))],
       ['地址', esc(d.address)],
@@ -8265,9 +8329,9 @@ Output the reconstructed image ONLY. No textual explanation required.
       ['主祀', esc(d.deity)],
       ['元宵主題', esc(L.theme)],
       ['元宵特色', L.feature ? richText(L.feature) : ''],
-      ['活動日期', esc(L.dates)],
+      ['活動日期', esc((r => r ? (r.start === r.end ? r.start : `${r.start}-${r.end}`) : L.dates)(d.lantern ? rangeOf(d) : null))],
       ['活動時間', esc(L.time)],
-      ['活動內容', items.map(t => `<span class="ln-d-item">${richText(t)}</span>`).join('')],
+      ['活動內容', items.map(it => itemHtml(d, it, 'ln-d-item')).join('')],
       ['參加政府單位活動', esc(L.gov)],
       ['傳說', esc(d.legend)],
       ['座標', `${d.lat}, ${d.lng}`]
