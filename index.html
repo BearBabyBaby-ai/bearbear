@@ -5935,7 +5935,7 @@ function applyBranding() {
   const sources = [`https://lh3.googleusercontent.com/d/${CFG.logoId}`, `https://drive.google.com/thumbnail?id=${CFG.logoId}&sz=w400`, OLD_LOGO_URL];
   let i = 0;
   logo.onerror = () => { i += 1; if (i < sources.length) logo.src = sources[i]; else logo.onerror = null; };
-  logo.src = sources[0];
+  if (logo.getAttribute('src') !== sources[0]) logo.src = sources[0];
 }
 
 /* =====================================================================
@@ -5965,7 +5965,7 @@ function showView(view) {
   if (view === 'calendar') Cal.onShown();
   if (view === 'gen') loadGenerator();
   if (view === 'stamp') loadStamp();
-  try { history.replaceState(null, '', `#${view}`); } catch (_) { /* 嵌入環境不允許時略過 */ }
+  try { history.replaceState(Object.assign({}, history.state, { view }), '', location.pathname + location.search); } catch (_) { /* 嵌入環境不允許時略過 */ }
 }
 document.addEventListener('click', e => {
   const go = e.target.closest('[data-go]');
@@ -8555,17 +8555,24 @@ const Home = (() => {
   tickClock();
   setInterval(() => { tickClock(); Home.renderGreeting(); }, 30000);
 
-  await loadHub();
+  /* 舊網址若帶 #分頁名稱，仍開到該分頁，但網址會去掉 # 後面 */
+  const fromHash = clean(location.hash.replace('#', ''));
+  const startView = VIEWS.includes(fromHash) ? fromHash : '';
+  applyBranding();
+  showView(startView || CFG.defaultView);
+
+  /* 系統設定和各項資料同時讀取，不再排隊等設定讀完 */
+  const hubReady = loadHub();
+  loadTideData();
+  const dataReady = loadData().catch(() => { resultCount.textContent = '資料讀取失敗'; Home.renderPlaces(true); });
+  await hubReady;
   applyBranding();
   $('forecastRegion').value = CFG.forecastDefault;
-  const fromHash = clean(location.hash.replace('#', ''));
-  showView(VIEWS.includes(fromHash) ? fromHash : CFG.defaultView);
-
+  if (!startView && currentView === 'home' && CFG.defaultView !== 'home') showView(CFG.defaultView);
   loadHubExtras();
-  loadTideData();
   Cal.load();
   Flights.start();
-  try { await loadData(); } catch (err) { resultCount.textContent = '資料讀取失敗'; Home.renderPlaces(true); }
+  await dataReady;
   if (currentView === 'map') setTimeout(() => map.invalidateSize(), 100);
 })();
 </script>
@@ -8582,8 +8589,8 @@ const Home = (() => {
     try { baseShowView(view); } finally {
       if (!restoring && before && currentView !== before) {
         try {
-          history.replaceState({ view: before }, '', '#' + before);
-          history.pushState({ view: currentView }, '', '#' + currentView);
+          history.replaceState({ view: before }, '', location.pathname + location.search);
+          history.pushState({ view: currentView }, '', location.pathname + location.search);
         } catch (_) { /* 不支援時略過 */ }
       }
     }
@@ -8592,7 +8599,7 @@ const Home = (() => {
   if (modal) {
     new MutationObserver(() => {
       const open = modal.classList.contains('show');
-      if (open && !modalPushed) { modalPushed = true; try { history.pushState({ modal: 1 }, '', location.hash); } catch (_) {} }
+      if (open && !modalPushed) { modalPushed = true; try { history.pushState({ modal: 1, view: currentView }, '', location.pathname + location.search); } catch (_) {} }
       else if (!open && modalPushed) { modalPushed = false; skipPop = true; try { history.back(); } catch (_) { skipPop = false; } }
     }).observe(modal, { attributes: true, attributeFilter: ['class'] });
   }
@@ -8601,7 +8608,7 @@ const Home = (() => {
   if (lnDetail) {
     new MutationObserver(() => {
       const open = !lnDetail.hidden;
-      if (open && !lnPushed) { lnPushed = true; try { history.pushState({ lnDetail: 1 }, '', location.hash); } catch (_) {} }
+      if (open && !lnPushed) { lnPushed = true; try { history.pushState({ lnDetail: 1, view: currentView }, '', location.pathname + location.search); } catch (_) {} }
       else if (!open && lnPushed) { lnPushed = false; skipPop = true; try { history.back(); } catch (_) { skipPop = false; } }
     }).observe(lnDetail, { attributes: true, attributeFilter: ['hidden'] });
   }
@@ -8609,7 +8616,7 @@ const Home = (() => {
     if (skipPop) { skipPop = false; return; }
     if (modalPushed) { modalPushed = false; closeImageModal(); return; }
     if (lnPushed) { lnPushed = false; Lantern.closeDetail(); return; }
-    const view = (location.hash || '').replace('#', '') || 'home';
+    const view = (history.state && history.state.view) || 'home';
     if (view === currentView) return;
     restoring = true;
     try { showView(view); } finally { restoring = false; }
