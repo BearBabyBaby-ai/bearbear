@@ -5352,13 +5352,21 @@ let hubNotices = [], hubLinks = DEFAULT_LINKS;
 /* ── 查機位：台灣本島 → 澎湖（華信有無位置；立榮訂位要驗證碼，只列班次，座位請到立榮官網確認） ── */
 const Seat = (() => {
   const UIA_BOOK = 'https://www.uniair.com.tw/rwd/B2C/booking/ubk_search.aspx';
-  const NAMES = { TSA: '松山', RMQ: '台中', CYI: '嘉義', TNN: '台南', KHH: '高雄' };
+  // 有位 → 訂位頁（華信：訂位延遲付款）；已滿 → 候補頁；立榮座位不自動查 → 立榮訂位頁
+  const LINK = { 華信: { 有位: 'https://www.mandarin-airlines.com/b2c/bookingpaylater', 候補: 'https://www.mandarin-airlines.com/b2c/Waiting' },
+    立榮: { 有位: UIA_BOOK, 候補: 'https://www.uniair.com.tw/rwd/B2C/alternate-booking/uba_search.aspx' } };
+  const linkOf = f => (LINK[f.air] || {})[f.seat] || (f.air === '立榮' ? UIA_BOOK : '');
+  const NAMES = { TSA: '松山', RMQ: '台中', CYI: '嘉義', TNN: '台南', KHH: '高雄', MZG: '澎湖' };
+  // 資料列底色：依航空公司 × 座位狀態，同色連續時深淺交替
+  const ROWC = { 華信: { 有位: ['#d6eaff', '#c2dcf6'], 候補: ['#fde0e6', '#f7c9d3'], 其他: ['#fff4d6', '#ffe9b3'] },
+    立榮: { 有位: ['#dcf3d6', '#c6e9bd'], 候補: ['#fde3d0', '#f8cfb2'], 其他: ['#fff8dc', '#f4ebbb'] } };
+  const rowBgs = list => { let last = '', alt = 0; return list.map(f => { const st = f.seat === '有位' || f.seat === '候補' ? f.seat : '其他'; const k = f.air + st; alt = k === last ? 1 - alt : 0; last = k; return ((ROWC[f.air] || ROWC.立榮)[st])[alt]; }); };
   const tz = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(d);
   const shift = (k, n) => { const d = new Date(k + 'T12:00:00+08:00'); d.setDate(d.getDate() + n); return tz(d); };
-  async function query(date, from, n) {
+  async function query(date, from, n, to = 'MZG') {
     if (!CFG.seatUrl) throw new Error('查機位功能尚未開通');
     date = String(date).replace(/\//g, '-');
-    const res = await fetch(`${CFG.seatUrl}?date=${date}&from=${from}&n=${n}`, { cache: 'no-store' });
+    const res = await fetch(`${CFG.seatUrl}?date=${date}&from=${from}&to=${to}&n=${n}`, { cache: 'no-store' });
     const j = await res.json();
     if (j.error) throw new Error(j.error);
     return j;
@@ -5367,10 +5375,10 @@ const Seat = (() => {
   const notes = j => [j.mdaError, j.uiaError, j.uiaNote].filter(Boolean);
   function html(j) {
     const wk = '日一二三四五六'[new Date(j.date + 'T12:00:00+08:00').getDay()];
-    const head = `<div class="seat-note">${j.date.replace(/-/g, '/')}（${wk}）${NAMES[j.from]} → 澎湖・${j.n} 人</div>`;
+    const head = `<div class="seat-note">${j.date.replace(/-/g, '/')}（${wk}）${NAMES[j.from]} → ${NAMES[j.to || 'MZG']}・${j.n} 人</div>`;
     if (!j.flights.length) return head + '<div class="seat-note">這天沒有班次資料</div>' + notes(j).map(t => `<div class="seat-note">${esc(t)}</div>`).join('');
-    const cell = s => s === '有位' ? '<span class="seat-ok">有位</span>' : s === '候補' ? '<span class="seat-wait">已滿・候補</span>' : `<a href="${UIA_BOOK}" target="_blank" rel="noopener">${esc(s)}</a>`;
-    return head + `<table><thead><tr><th>航空公司</th><th>班次</th><th>起飛</th><th>抵達</th><th>座位</th></tr></thead><tbody>${j.flights.map(f => `<tr><td>${esc(f.air)}</td><td>${esc(f.no)}</td><td>${esc(f.dep)}</td><td>${esc(f.arr)}</td><td>${cell(f.seat)}</td></tr>`).join('')}</tbody></table>`
+    const cell = f => { const u = linkOf(f), t = f.seat === '有位' ? '<span class="seat-ok">目前尚有位置</span>' : f.seat === '候補' ? '<span class="seat-wait">已滿，需候補</span>' : esc(f.seat); return u ? `<a href="${u}" target="_blank" rel="noopener">${t}</a>` : t; };
+    return head + `<table><thead><tr><th>航空公司</th><th>班次</th><th>起飛</th><th>抵達</th><th>座位</th></tr></thead><tbody>${(bg => j.flights.map((f, i) => `<tr style="background:${bg[i]}"><td>${esc(f.air)}</td><td>${esc(f.no)}</td><td>${esc(f.dep)}</td><td>${esc(f.arr)}</td><td>${cell(f)}</td></tr>`).join(''))(rowBgs(j.flights))}</tbody></table>`
       + notes(j).map(t => `<div class="seat-note">${esc(t)}</div>`).join('');
   }
   function init() {
@@ -5392,7 +5400,7 @@ const Seat = (() => {
     }));
     document.getElementById('seatGo').addEventListener('click', run);
   }
-  return { init, query, rowsOf, notes, NAMES };
+  return { init, query, rowsOf, notes, NAMES, linkOf, rowBgs };
 })();
 document.addEventListener('DOMContentLoaded', () => Seat.init());
 setTimeout(() => Seat.init(), 0);
