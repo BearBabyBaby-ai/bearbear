@@ -5930,6 +5930,7 @@ const Seat = (() => {
   const shift = (k, n) => { const d = new Date(k + 'T12:00:00+08:00'); d.setDate(d.getDate() + n); return tz(d); };
   async function query(date, from, n) {
     if (!CFG.seatUrl) throw new Error('查機位功能尚未開通');
+    date = String(date).replace(/\//g, '-');
     const res = await fetch(`${CFG.seatUrl}?date=${date}&from=${from}&n=${n}`, { cache: 'no-store' });
     const j = await res.json();
     if (j.error) throw new Error(j.error);
