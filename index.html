@@ -6091,11 +6091,11 @@ const Seat = (() => {
       out.innerHTML = keep || note('看圖輸入驗證碼後按「送出」');
       capCode.focus();
     };
-    // 立榮候補頁只開放 2 天後的日期（和熊寶桌寵一樣）：太近的那一段不送立榮，只查華信
-    const uiaLegs = () => { const min = shift(today(), 2); return legs().map((l, i) => Object.assign({ i }, l)).filter(l => l.k >= min); };
+    // 立榮座位查立榮訂位頁：今天以後的日期都可以查
+    const uiaLegs = () => { const min = today(); return legs().map((l, i) => Object.assign({ i }, l)).filter(l => l.k >= min); };
     document.getElementById('seatUba').addEventListener('click', () => {
       if (!CFG.seatUrl) { out.innerHTML = note('查機位功能尚未開通'); return; }
-      if (!uiaLegs().length) { cap.hidden = true; token = ''; run().then(() => { out.innerHTML += note('立榮候補只開放 2 天後的日期，這天的立榮座位請到立榮官網確認'); }); return; }
+      if (!uiaLegs().length) { cap.hidden = true; token = ''; run().then(() => { out.innerHTML += note('這天的立榮座位請到立榮官網確認'); }); return; }
       cap.hidden = false; newCap();
     });
     document.getElementById('seatCapNew').addEventListener('click', () => newCap());
@@ -6103,7 +6103,7 @@ const Seat = (() => {
       const v = capCode.value.trim();
       if (!token || !v) return;
       const ls = legs(), n = document.getElementById('seatN').value, tk = token, ok = uiaLegs();
-      if (!ok.length) { token = ''; cap.hidden = true; await run(); out.innerHTML += note('立榮候補只開放 2 天後的日期，這天的立榮座位請到立榮官網確認'); return; }
+      if (!ok.length) { token = ''; cap.hidden = true; await run(); out.innerHTML += note('這天的立榮座位請到立榮官網確認'); return; }
       const go = ok[0], ret = ok.length === 2 ? `&ret=${ok[1].k}` : '';
       token = '';
       out.innerHTML = note('查詢中…');
@@ -6117,7 +6117,7 @@ const Seat = (() => {
       let none = true;
       js.forEach((j, i) => {
         const k = ok.findIndex(l => l.i === i);
-        if (k < 0) { j.uiaNote = '立榮候補只開放 2 天後的日期，這天的立榮座位請到立榮官網確認'; return; }
+        if (k < 0) { j.uiaNote = '這天的立榮座位請到立榮官網確認'; return; }
         const uia = (w.flights || []).filter(f => (f.dir || 'go') === (k ? 'back' : 'go')).map(f => ({ air: '立榮', no: f.no, dep: f.dep, arr: f.arr, seat: uiaSeat(f.status) }));
         if (uia.length) { none = false; j.flights = j.flights.filter(f => f.air !== '立榮').concat(uia).sort((x, y) => String(x.dep || '99').localeCompare(String(y.dep || '99'))); j.uiaNote = ''; j.uiaError = ''; }
       });
