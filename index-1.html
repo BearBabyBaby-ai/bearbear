@@ -6315,7 +6315,7 @@ const Flights = (() => {
     if (lower.includes('boarding') || lower.includes('登機')) return { text: raw || '登機 Boarding', className: 'Boarding', history: false };
     return { text: raw || '準時 On Time', className: 'OnTime', history: isOlderThan(actual || scheduled) };
   }
-  // 異動後時間：航空公司時間和澎湖航空站表定不同時才填（華信用華信表定起飛；立榮用立榮預計出發；實際起飛不算；同一天、同一班）
+  // 異動後起飛：航空公司時間和澎湖航空站表定不同時才填（華信用華信表定起飛；立榮用立榮預計出發；實際起飛不算；同一天、同一班）
   function applyExpected(mdaRows, uiaRows) {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
     const mins = t => { const m = String(t || '').match(/(\d{1,2})\s*[:：]\s*(\d{2})/); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
@@ -6423,8 +6423,8 @@ const Flights = (() => {
   function tableHTML(rows) {
     const arrival = state.mode === 'arrival';
     const heads = arrival
-      ? ['航空公司', '班次', '來自', '機型', '表定起飛', '異動後時間', '實際起飛', '表定到達', '預估／實際到達', '備註 (Remark)', '輔助查詢']
-      : ['航空公司', '班次', '目的地', '機型', '表定起飛', '異動後時間', '預估／實際起飛', '備註 (Remark)', '登機門', '輔助查詢'];
+      ? ['航空公司', '班次', '來自', '機型', '表定起飛', '異動後起飛', '實際起飛', '表定到達', '預估／實際到達', '備註 (Remark)', '輔助查詢']
+      : ['航空公司', '班次', '目的地', '機型', '表定起飛', '異動後起飛', '預估／實際起飛', '備註 (Remark)', '登機門', '輔助查詢'];
     const body = rows.map(row => `<tr class="${row.status.history ? 'history ' : ''}${airlineClass(row.airline, row.flight)}${state.selectedFlight === row.flight ? ' flight-selected' : ''}">
       <td>${escapeHTML(row.airline)}</td>
       <td class="flight-no map-focus-trigger" data-map-flight="${escapeHTML(row.flight)}" data-map-hex="${escapeHTML(row.hex)}" role="button" tabindex="0" title="在下方地圖追蹤 ${escapeHTML(row.flight)}">${escapeHTML(row.flight)}</td>
@@ -6449,7 +6449,7 @@ const Flights = (() => {
         <div class="kv"><small>${arrival ? '來自' : '目的地'}</small><span>${escapeHTML(row.place)}</span></div>
         <div class="kv"><small>機型</small><span>${escapeHTML(row.aircraft || '—')}</span></div>
         <div class="kv"><small>表定起飛</small><span class="time">${escapeHTML(row.scheduledStart || '—')}</span></div>
-        <div class="kv"><small>異動後時間</small><span class="time">${escapeHTML(row.expectedStart || '')}</span></div>
+        <div class="kv"><small>異動後起飛</small><span class="time">${escapeHTML(row.expectedStart || '')}</span></div>
         <div class="kv"><small>${arrival ? '實際起飛' : '預估／實際起飛'}</small><span class="time">${escapeHTML(row.actualStart || '—')}</span></div>
         ${arrival ? `<div class="kv"><small>表定到達</small><span class="time">${escapeHTML(row.scheduledEnd || '—')}</span></div><div class="kv"><small>預估／實際到達</small><span class="time">${escapeHTML(row.actualEnd || '—')}</span></div>` : `<div class="kv"><small>登機門</small><span>${escapeHTML(row.gate || '—')}</span></div>`}
       </div>
