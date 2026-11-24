@@ -7633,5 +7633,30 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 }
 </script>
+<!-- 電腦端：熊寶桌寵對話框（只能查詢） -->
+<style>
+  #bbPetBtn,#bbPetBox{display:none}
+  @media(min-width:821px){
+    #bbPetBtn{display:block;position:fixed;right:18px;bottom:18px;z-index:9000;width:72px;height:72px;padding:0;border:3px solid #fff;border-radius:50%;background:#f6e7cf;box-shadow:0 8px 18px rgba(0,0,0,.3);cursor:pointer;overflow:hidden}
+    #bbPetBtn img{width:100%;height:100%;object-fit:cover;display:block}
+    #bbPetBox{display:block;position:fixed;right:18px;bottom:100px;z-index:9000;width:440px;height:min(640px,calc(100vh - 130px));border:0;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);background:#fff}
+    #bbPetBox[hidden]{display:none}
+  }
+</style>
+<button type="button" id="bbPetBtn" aria-label="熊寶桌寵" title="問熊寶"><img src="https://bearbabybaby-ai.github.io/bearbao/pet-app/pet/src/bear-icon.png" alt=""></button>
+<script>
+(() => {
+  const btn = document.getElementById('bbPetBtn');
+  let box = null;
+  btn.addEventListener('click', () => {
+    if (!box) {
+      box = document.createElement('iframe');
+      box.id = 'bbPetBox'; box.title = '熊寶工作中'; box.src = 'https://bearbabybaby-ai.github.io/bearbao/chat.html?q=1';
+      document.body.appendChild(box);
+    } else box.hidden = !box.hidden;
+  });
+  window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.bearChat === 'close' && box) box.hidden = true; });
+})();
+</script>
 </body>
 </html>
