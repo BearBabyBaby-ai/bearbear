@@ -5360,7 +5360,7 @@ const Seat = (() => {
   // 資料列底色：依航空公司 × 座位狀態，同色連續時深淺交替
   const ROWC = { 華信: { 有位: ['#d6eaff', '#c2dcf6'], 候補: ['#fde0e6', '#f7c9d3'], 其他: ['#fff4d6', '#ffe9b3'] },
     立榮: { 有位: ['#dcf3d6', '#c6e9bd'], 候補: ['#fde3d0', '#f8cfb2'], 其他: ['#fff8dc', '#f4ebbb'] } };
-  const rowBgs = list => { let last = '', alt = 0; return list.map(f => { const st = f.seat === '有位' || f.seat === '候補' ? f.seat : '其他'; const k = f.air + st; alt = k === last ? 1 - alt : 0; last = k; return ((ROWC[f.air] || ROWC.立榮)[st])[alt]; }); };
+  const rowBgs = list => { let last = '', alt = 0; return list.map(f => { const st = f.seat === '有位' ? '有位' : /候補|已滿/.test(f.seat) ? '候補' : '其他'; const k = f.air + st; alt = k === last ? 1 - alt : 0; last = k; return ((ROWC[f.air] || ROWC.立榮)[st])[alt]; }); };
   const tz = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(d);
   const shift = (k, n) => { const d = new Date(k + 'T12:00:00+08:00'); d.setDate(d.getDate() + n); return tz(d); };
   async function query(date, from, n, to = 'MZG') {
