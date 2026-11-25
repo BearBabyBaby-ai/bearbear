@@ -1,11 +1,11 @@
 /* =====================================================================
    熊熊綜合系統 App - service worker
    ・index.html：先連網取得最新版，沒網路時才用上次的版本 → 改 GitHub 上的 index.html，App 下次開啟就是新版
-   ・試算表資料：先連網，沒網路時顯示上次讀到的資料
+   ・試算表資料：直接讀，不在手機另外存
    ・外部程式庫（地圖、圖表）：存一份在手機，加快開啟速度
    只有更換圖示或 manifest.json 時，才需要把下面的 VERSION 改一個新名稱
    ===================================================================== */
-const VERSION = 'bearbear-2026-11-24-v7';
+const VERSION = 'bearbear-2026-11-24-v8';
 const SHELL_CACHE = `shell-${VERSION}`;
 const DATA_CACHE = 'sheet-data';
 const LIB_CACHE = 'libs';
@@ -19,7 +19,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k.startsWith('shell-bearbear-') && k !== SHELL_CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => (k.startsWith('shell-bearbear-') && k !== SHELL_CACHE) || k === DATA_CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -75,8 +75,7 @@ self.addEventListener('fetch', event => {
 
   /* 熊熊綜合系統試算表的 CSV（地圖、月曆、活動、分海、潮汐） */
   if (url.hostname === 'docs.google.com' && url.pathname.includes('/spreadsheets/') && /format=csv|out%3Acsv|out:csv/.test(url.search)) {
-    event.respondWith(networkFirst(request, DATA_CACHE, dataKey(request.url)));
-    return;
+    return;   /* 試算表資料直接讀，不在手機另外存 */
   }
 
   /* 外部程式庫（網址含版本號，內容不會變） */
