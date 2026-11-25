@@ -2909,6 +2909,7 @@ function buildResultCard(item, index, opts) {
     const addr = getFoodField(item, '地址'), phone = getFoodField(item, '電話');
     if (addr) metaRows.push(['🏠 地址', addr]);
     if (phone) metaRows.push(['☎️ 電話', phone]);
+    if (sourceSheet === '其他店家' && checkValid(item['營業時間'])) metaRows.push(['🕒 營業時間', item['營業時間']]);
   }
   const metaHTML = metaRows.length ? `<div class="card-meta">${metaRows.map(([k, v]) => `<div class="card-meta-row"><span class="card-meta-label">${k}</span><span class="card-meta-value">${escapeHtml(v)}</span></div>`).join('')}</div>` : '';
 
@@ -3626,6 +3627,7 @@ function buildItemTextBase(item, sourceSheet, mainCat = '', subCat = '') {
     text += `名稱：${getItemDisplayName(item, sourceSheet)}\n`;
     if (checkValid(item['地址'])) text += `地址：${item['地址']}\n`;
     if (checkValid(item['電話'])) text += `電話：${item['電話']}\n`;
+    if (checkValid(item['營業時間'])) text += `營業時間：${item['營業時間']}\n`;
     if (checkValid(item['短網址'])) text += `短網址：${item['短網址']}\n`;
     return text.trimEnd();
   }
@@ -6349,7 +6351,7 @@ function detailPairs(d) {
   if (d.type === '廟宇') return [['區域', area], ['主祀', d.deity], ['地址', d.address], ['電話', d.phone]];
   if (d.type === '港口' || d.type === '遊客中心') return [['區域', area], ['類別', d.category], ['地址', d.address], ['說明', d.desc], ['傳說', d.legend]];
   if (d.type === '測速執法') return [['區域', area], ['類型', d.kind], ['設備編號', d.code], ['速限', d.limit ? `${d.limit} 公里` : ''], ['拍攝方向', d.direction], ['取締項目', d.items], ['執法種類', d.techKind], ['管轄分局', d.station], ['型式', d.model]];
-  return [['區域', area], ['類別', d.category], ['地址', d.address], ['電話', d.phone]];
+  return [['區域', area], ['類別', d.category], ['地址', d.address], ['電話', d.phone], ['營業時間', d.hours]];
 }
 function imageUrl(value) {
   const raw = clean(value); if (!raw) return '';
