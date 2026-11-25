@@ -6198,7 +6198,8 @@ const Seat = (() => {
     });
     document.getElementById('seatCapNew').addEventListener('click', newCap);
     const send = async () => {
-      const v = capCode.value.trim();
+      // 立榮驗證碼全是數字：全形數字轉半形，其他字元去掉
+      const v = capCode.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\D/g, '');
       if (!token || !v) return;
       const ls = legs(), n = document.getElementById('seatN').value, tk = token, l = ls[step];
       if (!l) return;
